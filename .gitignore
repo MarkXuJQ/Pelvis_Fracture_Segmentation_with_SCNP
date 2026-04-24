@@ -20,6 +20,7 @@ ENV/
 # Editor / OS clutter
 .DS_Store
 Thumbs.db
+._*
 .idea/
 .vscode/
 *.swp
