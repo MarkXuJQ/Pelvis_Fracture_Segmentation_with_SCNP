@@ -1,127 +1,119 @@
-## Pelvis SCNP Workspace
+## Pelvis Fracture Segmentation with SCNP
 
-This repository is a standalone workspace for Pelvis SCNP experiments.
-It keeps the source data snapshot, reusable nnU-Net caches, experiment entrypoints, and local nnUNetv2 overlays in one place.
+This repository is the code workspace for our pelvis fracture ROI segmentation experiments based on nnU-Net and SCNP-style priors.
+The GitHub repository is intended to track code, experiment overlays, and documentation.
+Large local assets such as `source/`, `dataset/nnUNet_raw_data/`, `dataset/nnUNet_preprocessed/`, and `dataset/nnUNet_results/` are intentionally ignored by Git.
 
-Directory layout:
+Run all commands from the repository root inside an environment that already provides `nnUNetv2`.
+All entrypoints resolve paths against the local repository root through `PELVIS_SCNP_DATA_ROOT`, so local commands consistently target this workspace instead of an external checkout.
 
-- `source/`: original ROI `CT + GT`
-- `dataset/`: dataset build and preprocess entry scripts
-- `dataset/nnUNet_raw_data/`: built CT-only raw dataset
-- `dataset/nnUNet_preprocessed/`: reusable nnUNet preprocessing cache and training-only `disMap` sidecars
-- `dataset/nnUNet_results/`: model outputs
-- `training/`: training package, now split by stage like the official FracSegNet layout
-- `inference/`: prediction and validation entry scripts
+## Repository Layout
 
-Run all commands inside an environment that provides `nnUNetv2`.
+- `dataset/`
+  Thin local entry scripts for dataset build, preprocessing, and audit.
+- `training/`
+  Main training package, including runtime utilities, experiment registry, evaluation flows, and nnUNetv2 overlays.
+- `inference/`
+  Compatibility prediction entrypoints that call the same local training package.
+- `paper/`
+  Thesis and manuscript material.
 
-Pipeline semantics follow the official FracSegNet fracture stage:
+Within `training/`:
 
-- `source/images` and `source/labels` store ROI fracture cases.
-- `source/labels` store ROI fragment instance ids with the main fracture segment encoded as `1` and additional fragments encoded as `2..N`.
-- Our ROI model corresponds to the official FracSegNet fracture-stage second network and can be run after an anatomy-stage checkpoint for full-CT segmentation.
-- The raw nnU-Net dataset keeps CT-only inputs and official fracture-stage semantic targets `0 background / 1 main fracture segment / 2 segment 2 / 3 segment 3`.
-- When a source ROI contains more than three foreground fragments, source labels `>=4` are collapsed into `segment 3` so the training target stays inside the official FracSegNet 4-class label space.
-- Preprocessing generates a single-channel FracSegNet-style `disMap` for training cases only.
-- The `disMap` prior still follows the official FracSegNet rule of contrasting `label 1` against all non-main fragments `>=2`.
-- Network forward during both training and inference is CT-only; `disMap` is used only as a training-time loss prior.
+- `training/data/`
+  Dataset build, preprocessing, and audit logic.
+- `training/run/`
+  Unified launchers plus experiment registry code.
+- `training/runtime/`
+  Shared path resolution, split generation, disMap loading, and trainer-base utilities.
+- `training/evaluation/`
+  Prediction, validation, postprocessing, and full-CT comparison flows.
+- `training/experiments/`
+  Experiment-specific trainer overlays and supporting example code.
 
-Code organization follows the same principle:
+## Data Assumptions
 
-- `training/data/` holds dataset build, preprocessing, and audit logic.
-- `training/run/` holds unified launchers and experiment registry code.
-- `training/runtime/` holds path, split, disMap, and trainer-base utilities.
-- `training/evaluation/` holds prediction, validation, postprocessing, and full-CT comparison logic.
-- `training/experiments/` holds experiment-specific overlays and supporting example code only.
-- Prediction entrypoints under `inference/` call the same local repository code and do not depend on any external project checkout.
+The local workspace expects a repository-root data layout like this when you actually run preprocessing or training:
 
-### Build Dataset
+```text
+<repo-root>/
+  source/
+    images/
+    labels/
+  dataset/
+    nnUNet_raw_data/
+    nnUNet_preprocessed/
+    nnUNet_results/
+```
+
+Pipeline semantics follow the official FracSegNet fracture-stage setting:
+
+- Source ROI labels use `1` for the main fracture segment and `2..N` for additional fragments.
+- Training targets are collapsed into the official four-class semantic label space:
+  `0 background / 1 main fracture segment / 2 segment 2 / 3 segment 3`.
+- Source fragment labels `>=4` are merged into class `3`.
+- The network remains CT-only at train and test time.
+- The `disMap` prior is used only as a training-side prior.
+
+## Common Commands
+
+Build the raw dataset from the local repository-root `source/` directory:
 
 ```bash
 python dataset/build_dataset.py
 ```
 
-Use `python dataset/build_dataset.py --reset_existing` only when you want to rebuild the raw dataset from `source/`.
-
-### Preprocess Once And Reuse
+Preprocess once and reuse cached outputs:
 
 ```bash
 python dataset/preprocess_dataset.py
 ```
 
-Optional dataset audit:
+Audit local dataset state with explicit local paths:
 
 ```bash
-python dataset/audit_dataset.py --dataset_dir dataset/nnUNet_raw_data/Dataset503_SCNP --preprocessed_dataset_dir dataset/nnUNet_preprocessed/Dataset503_SCNP
+python dataset/audit_dataset.py --dataset_dir D:\Code\Pelvis_SCNP\dataset\nnUNet_raw_data\Dataset503_SCNP --preprocessed_dataset_dir D:\Code\Pelvis_SCNP\dataset\nnUNet_preprocessed\Dataset503_SCNP
 ```
 
-If the preprocessed cache and `disMap` sidecars already exist, the script reuses them automatically.
-The raw dataset layout is also reused when the expected ROI cases are already present.
-Offline preprocessing covers `imagesTr` only; `imagesTs` remains the held-out test split for prediction and evaluation.
-
-### Train
-
-Unified launcher:
+List registered experiments:
 
 ```bash
 python training/run_experiment.py list
+```
+
+Train a standard single-RF experiment:
+
+```bash
 python training/run_experiment.py train single_rf3_thr03 --preprocess --split_mode patient --fold 0
 ```
 
-Compatibility launchers:
-
-Single-RF `rf=3`, threshold `0.5`:
+Train other non-soft variants through compatibility shims:
 
 ```bash
 python training/train_single_rf3_thr05.py --split_mode patient --fold 0
-```
-
-Single-RF `rf=3`, threshold `0.3`:
-
-```bash
-python training/train_single_rf3_thr03.py --preprocess --split_mode patient --fold 0
-```
-
-Single-RF `rf=5`, threshold `0.3`:
-
-```bash
 python training/train_single_rf5_thr03.py --split_mode patient --fold 0
-```
-
-Single-RF without threshold:
-
-```bash
 python training/train_single_no_threshold.py --split_mode patient --fold 0
-```
-
-Multi-RF:
-
-```bash
 python training/train_multi_rf3_thr03_rf5_thr05.py --split_mode patient --fold 0
+python training/train_multi_rf0307.py --split_mode patient --fold 0
 ```
 
-Soft-SCNP without FDM prior:
-
-```bash
-python training/train_soft_no_fdm.py --split_mode patient --fold 0
-```
-
-Soft-SCNP with soft FDM prior:
-
-```bash
-python training/train_soft_soft_fdm.py --split_mode patient --fold 0
-```
-
-### Predict
+Predict with the unified entrypoint:
 
 ```bash
 python training/run_experiment.py predict single_rf3_thr03 --fold all
 ```
 
-Compatibility launcher:
+Or with compatibility wrappers:
 
 ```bash
 python inference/predict_single_rf3_thr03.py --fold all
+python inference/predict_single_rf5_thr03.py --fold all
+python inference/predict_single_no_threshold.py --fold all
+python inference/predict_multi_rf3_thr03_rf5_thr05.py --fold all
+python inference/predict_multi_rf0307.py --fold all
 ```
 
-All inference wrapper entrypoints now default to the same global-LCC cleanup used by the official FracSegNet export flow.
+## Notes
+
+- `training/auto_start_rf3_thr03.py` was removed because training is now driven by the unified launcher and explicit CLI entrypoints.
+- Soft-variant training and inference entrypoints remain in the repository, but this cleanup round focuses on the non-soft single-RF and multi-RF workflows you asked to publish first.

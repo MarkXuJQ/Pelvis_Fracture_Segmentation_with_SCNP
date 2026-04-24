@@ -33,6 +33,7 @@ tmp/
 
 # Project data and generated experiment artifacts
 source/
+paper/
 dataset/nnUNet_raw_data/
 dataset/nnUNet_preprocessed/
 dataset/nnUNet_results/
