@@ -97,6 +97,15 @@ python training/train_multi_rf3_thr03_rf5_thr05.py --split_mode patient --fold 0
 python training/train_multi_rf0307.py --split_mode patient --fold 0
 ```
 
+Train the soft-variant family, including the full-image hard-SCNP run without FDM:
+
+```bash
+python training/train_hard_no_fdm.py --split_mode patient --fold 0
+python training/train_soft_no_fdm.py --split_mode patient --fold 0
+python training/train_scnp_soft_fdm.py --split_mode patient --fold 0
+python training/train_soft_soft_fdm.py --split_mode patient --fold 0
+```
+
 Predict with the unified entrypoint:
 
 ```bash
@@ -113,7 +122,16 @@ python inference/predict_multi_rf3_thr03_rf5_thr05.py --fold all
 python inference/predict_multi_rf0307.py --fold all
 ```
 
+Soft-variant prediction wrappers:
+
+```bash
+python inference/predict_hard_no_fdm.py --fold all
+python inference/predict_soft_no_fdm.py --fold all
+python inference/predict_scnp_soft_fdm.py --fold all
+python inference/predict_soft_soft_fdm.py --fold all
+```
+
 ## Notes
 
 - `training/auto_start_rf3_thr03.py` was removed because training is now driven by the unified launcher and explicit CLI entrypoints.
-- Soft-variant training and inference entrypoints remain in the repository, but this cleanup round focuses on the non-soft single-RF and multi-RF workflows you asked to publish first.
+- The soft-variant family lives under `training/experiments/scnp_soft_variants/`, where `hard_no_fdm` is the hard-SCNP full-image variant without a `disMap` loss prior.

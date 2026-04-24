@@ -18,6 +18,7 @@ python training/run_experiment.py compare single_rf5_thr03 --case_min 101 --case
 ```
 
 The old top-level launchers such as `train_single_rf3_thr03.py` still exist, but they are now compatibility shims around the same shared launcher.
+The same applies to the soft-variant family, including the full-image `hard_no_fdm` run.
 
 ## Layout
 
@@ -40,3 +41,5 @@ The old top-level launchers such as `train_single_rf3_thr03.py` still exist, but
 - Default trainers, thresholds, compare settings, stage-2 ROI method names, and FracSegNet-style postprocessing defaults now live in one place: `training/run/experiment_registry.py`.
 - Shared execution code is grouped by stage, closer to the official FracSegNet split between `run`, `preprocessing`, and `inference`.
 - Experiment directories are now much thinner: only the code that is truly experiment-specific stays there, mainly trainer classes, loss wiring, and overlay exports.
+- `experiments/scnp_soft_variants/` now contains the full soft-variant family:
+  `hard_no_fdm`, `soft_no_fdm`, `scnp_soft_fdm`, and `soft_soft_fdm`.
