@@ -3,16 +3,23 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 from pathlib import Path
 from typing import Iterable
 
 import numpy as np
 import SimpleITK as sitk
 
+repo_root = Path(__file__).resolve().parents[2]
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
+
 from training.runtime.project_paths import (
     DATASET_BUILD_SCHEMA_VERSION,
+    DATASET_NAME,
     SECOND_STAGE_IMAGE_GENERATION_MODE,
     SECOND_STAGE_IMAGE_SEMANTICS,
+    get_project_paths,
 )
 
 
@@ -85,11 +92,12 @@ def iter_cases_with_bad_channels(image_dir: Path, expected_channels: int) -> Ite
 def check_label_values(label_paths: list[Path]) -> tuple[list[str], dict[str, list[int]]]:
     bad_cases: dict[str, list[int]] = {}
     union_values: set[int] = set()
+    allowed_values = {0, 1, 2}
     for label_path in label_paths:
         arr = sitk.GetArrayFromImage(sitk.ReadImage(str(label_path)))
         values = sorted(int(value) for value in np.unique(arr))
         union_values.update(values)
-        if any(value not in range(0, 4) for value in values):
+        if any(value not in allowed_values for value in values):
             bad_cases[label_path.name] = values
     return [str(value) for value in sorted(union_values)], bad_cases
 
@@ -109,7 +117,7 @@ def _case_records_by_name(raw_build_manifest: dict | None) -> dict[str, dict[str
 
 def check_masked_ct_consistency(
     image_dir: Path,
-    label_dir: Path,
+    case_names: list[str],
     raw_build_manifest: dict | None,
 ) -> tuple[dict[str, object], dict[str, object]]:
     summary: dict[str, object] = {
@@ -123,10 +131,7 @@ def check_masked_ct_consistency(
     bad_cases: dict[str, object] = {}
     case_records = _case_records_by_name(raw_build_manifest)
 
-    for label_path in sorted(label_dir.glob("*.nii.gz")):
-        if not is_real_nifti(label_path):
-            continue
-        case_stem = case_stem_from_label_path(label_path)
+    for case_stem in sorted(case_names):
         image_path = image_dir / f"{case_stem}_0000.nii.gz"
         if not image_path.is_file():
             bad_cases[case_stem] = "missing image"
@@ -223,9 +228,14 @@ def collect_preprocessed_cases(preprocessed_config_dir: Path) -> list[str]:
 
 
 def main() -> None:
+    default_paths = get_project_paths()
     parser = argparse.ArgumentParser(description="Audit stage-2 masked-CT dataset split/remap/preprocessing consistency.")
-    parser.add_argument("--dataset_dir", type=Path, required=True)
-    parser.add_argument("--preprocessed_dataset_dir", type=Path, required=True)
+    parser.add_argument("--dataset_dir", type=Path, default=default_paths.raw_dataset_dir)
+    parser.add_argument(
+        "--preprocessed_dataset_dir",
+        type=Path,
+        default=default_paths.nnunet_preprocessed_root / DATASET_NAME,
+    )
     parser.add_argument("--network", type=str, default="3d_fullres")
     parser.add_argument("--train_patient_max", type=int, default=100)
     parser.add_argument("--fold", type=str, default="all")
@@ -292,9 +302,24 @@ def main() -> None:
         errors.append("Raw dataset.json channel_names is empty.")
 
     train_cases = collect_label_cases(labels_tr)
-    test_cases = collect_label_cases(labels_ts)
+    test_cases = collect_image_cases(images_ts)
     summary["num_train_cases"] = len(train_cases)
     summary["num_test_cases"] = len(test_cases)
+
+    if raw_build_manifest is not None:
+        manifest_records = _case_records_by_name(raw_build_manifest)
+        manifest_train_cases = sorted(
+            case for case, record in manifest_records.items() if record.get("split") == "train"
+        )
+        manifest_test_cases = sorted(
+            case for case, record in manifest_records.items() if record.get("split") == "test"
+        )
+        summary["num_manifest_train_cases"] = len(manifest_train_cases)
+        summary["num_manifest_test_cases"] = len(manifest_test_cases)
+        if manifest_train_cases and train_cases != manifest_train_cases:
+            errors.append("labelsTr cases do not match train cases recorded in the raw build manifest.")
+        if manifest_test_cases and test_cases != manifest_test_cases:
+            errors.append("imagesTs cases do not match test cases recorded in the raw build manifest.")
 
     train_patients = sorted({parse_case_name(case)[0] for case in train_cases})
     test_patients = sorted({parse_case_name(case)[0] for case in test_cases})
@@ -304,7 +329,7 @@ def main() -> None:
     if any(patient_id > int(args.train_patient_max) for patient_id in train_patients):
         errors.append("labelsTr contains patient ids above train_patient_max.")
     if any(patient_id <= int(args.train_patient_max) for patient_id in test_patients):
-        errors.append("labelsTs contains patient ids that should be in train.")
+        errors.append("imagesTs contains patient ids that should be in train.")
 
     if train_patients and (min(train_patients) != 1 or max(train_patients) != int(args.train_patient_max)):
         warnings.append(
@@ -320,7 +345,12 @@ def main() -> None:
     if train_image_cases != train_cases:
         errors.append("imagesTr cases do not match labelsTr cases.")
     if test_image_cases != test_cases:
-        errors.append("imagesTs cases do not match labelsTs cases.")
+        errors.append("Internal audit error: collected imagesTs case lists do not match.")
+
+    labels_ts_cases = collect_label_cases(labels_ts)
+    summary["num_labels_ts_cases"] = len(labels_ts_cases)
+    if labels_ts_cases:
+        errors.append("labelsTs should not be present in the public inference-oriented raw dataset build.")
 
     bad_train_channels = list(iter_cases_with_bad_channels(images_tr, expected_channels))
     bad_test_channels = list(iter_cases_with_bad_channels(images_ts, expected_channels))
@@ -331,14 +361,13 @@ def main() -> None:
 
     label_union, bad_label_cases = check_label_values(
         [path for path in sorted(labels_tr.glob("*.nii.gz")) if is_real_nifti(path)]
-        + [path for path in sorted(labels_ts.glob("*.nii.gz")) if is_real_nifti(path)]
     )
     summary["label_value_union"] = label_union
     if bad_label_cases:
         errors.append(f"Found labels outside {{0,1,2}} in cases: {dict(list(bad_label_cases.items())[:10])}")
 
-    masked_train_summary, bad_train_masked_cases = check_masked_ct_consistency(images_tr, labels_tr, raw_build_manifest)
-    masked_test_summary, bad_test_masked_cases = check_masked_ct_consistency(images_ts, labels_ts, raw_build_manifest)
+    masked_train_summary, bad_train_masked_cases = check_masked_ct_consistency(images_tr, train_cases, raw_build_manifest)
+    masked_test_summary, bad_test_masked_cases = check_masked_ct_consistency(images_ts, test_cases, raw_build_manifest)
     summary["masked_ct_train"] = masked_train_summary
     summary["masked_ct_test"] = masked_test_summary
     if bad_train_masked_cases:

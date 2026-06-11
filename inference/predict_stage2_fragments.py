@@ -218,7 +218,6 @@ def main(default_experiment: str | None = None) -> None:
             "1": "main fracture segment",
             "2": "secondary fragments",
         },
-        "ground_truth_used": False,
     }
     (output_dir / "prediction_run_config.json").write_text(json.dumps(run_config, indent=2) + "\n", encoding="utf-8")
 

@@ -30,7 +30,7 @@ If these variables are not set, paths are resolved relative to the repository ro
 The method follows a two-stage FracSegNet-style flow:
 
 1. Generate or provide stage-1 anatomy predictions on complete CT volumes.
-2. Build the stage-2 masked-CT nnU-Net dataset. CT intensity is preserved only inside the predicted target anatomy region. Fracture labels are not used to create the input mask.
+2. Build the stage-2 masked-CT nnU-Net dataset. CT intensity is preserved only inside the predicted target anatomy region. Fracture labels are used only for `labelsTr`; test/inference images are written without `labelsTs`.
 3. Preprocess the stage-2 dataset and generate the training-side FDM/disMap sidecars used by the SCNP loss.
 4. Train or run inference with the core `single_rf3_thr03` experiment.
 
@@ -50,14 +50,14 @@ The stage-2 network input remains CT-only. Stage-1 anatomy labels are used to bu
 The public training path keeps the core SCNP+FDM setting:
 
 ```bash
-python training/run_experiment.py list
-python training/run_experiment.py train single_rf3_thr03 --preprocess --split_mode patient --fold 0
+python training/train_single_rf3_thr03.py --preprocess --split_mode patient --fold 0
 ```
 
-Equivalent compatibility entrypoint:
+Optional unified entrypoint:
 
 ```bash
-python training/train_single_rf3_thr03.py --preprocess --split_mode patient --fold 0
+python training/run_experiment.py list
+python training/run_experiment.py train single_rf3_thr03 --preprocess --split_mode patient --fold 0
 ```
 
 The core trainer uses SCNP with receptive field `3` and an FDM threshold of `0.3`. Training targets are collapsed to the paper's three-class segmentation schema: background, main fracture segment, and secondary fragments.
@@ -67,13 +67,13 @@ The core trainer uses SCNP with receptive field `3` and an FDM threshold of `0.3
 Run prediction on stage-2 masked CT images named `*_0000.nii.gz`:
 
 ```bash
-python training/run_experiment.py predict single_rf3_thr03 --folds all --checkpoint checkpoint_final.pth
-```
-
-Equivalent inference-only wrapper:
-
-```bash
 python inference/predict_single_rf3_thr03.py --folds all --checkpoint checkpoint_final.pth
 ```
 
-By default, inference reads `imagesTs` from the configured nnU-Net raw dataset and writes predictions under `dataset/predictions/`. Use `--input_dir` and `--output_dir` to choose other folders. The inference entrypoints do not read ground-truth labels and do not compute evaluation metrics.
+Optional unified entrypoint:
+
+```bash
+python training/run_experiment.py predict single_rf3_thr03 --folds all --checkpoint checkpoint_final.pth
+```
+
+By default, inference reads `imagesTs` from the configured nnU-Net raw dataset and writes predictions under `dataset/predictions/`. Use `--input_dir` and `--output_dir` to choose other folders. The inference entrypoints read only stage-2 masked CT images and do not compute evaluation metrics.

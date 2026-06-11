@@ -14,6 +14,13 @@ The stage-2 label schema is `0 background / 1 main fracture segment / 2 secondar
 Recommended commands:
 
 ```bash
+python training/train_single_rf3_thr03.py --preprocess --split_mode patient --fold 0
+python inference/predict_single_rf3_thr03.py --folds all --checkpoint checkpoint_final.pth
+```
+
+The unified launcher remains available as an optional wrapper:
+
+```bash
 python training/run_experiment.py list
 python training/run_experiment.py train single_rf3_thr03 --preprocess --split_mode patient --fold 0
 python training/run_experiment.py predict single_rf3_thr03 --folds all --checkpoint checkpoint_final.pth

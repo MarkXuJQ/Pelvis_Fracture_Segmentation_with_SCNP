@@ -181,7 +181,7 @@ def _map_full_grid_bone_fragments(
 
 def _build_case_record(paths, patient_id: int, bone_code: str) -> dict[str, object]:
     is_train = patient_id <= TRAIN_PATIENT_END
-    return {
+    record: dict[str, object] = {
         "case": _case_identifier(patient_id, bone_code),
         "patient_id": int(patient_id),
         "bone_code": bone_code,
@@ -189,9 +189,11 @@ def _build_case_record(paths, patient_id: int, bone_code: str) -> dict[str, obje
         "full_ct": str(_full_ct_path(paths, patient_id)),
         "stage1_anatomy_label": str(_anatomy_label_path(paths, patient_id)),
         "target_anatomy_label": int(ROI_TO_ANATOMY_LABEL[bone_code]),
-        "fracture_label": str(_fracture_label_path(paths, patient_id)),
-        "fracture_label_encoding": "dataset501_full_grid",
     }
+    if is_train:
+        record["fracture_label"] = str(_fracture_label_path(paths, patient_id))
+        record["fracture_label_encoding"] = "dataset501_full_grid"
+    return record
 
 
 def _record_digest(case_records: list[dict[str, object]]) -> str:
@@ -202,27 +204,21 @@ def _record_digest(case_records: list[dict[str, object]]) -> str:
 def _write_stage2_case(
     record: dict[str, object],
     image_dst_dir: Path,
-    label_dst_dir: Path,
+    label_dst_dir: Path | None,
 ) -> dict[str, int | float | str]:
     case_identifier = str(record["case"])
     bone_code = str(record["bone_code"])
-    patient_id = int(record["patient_id"])
     target_anatomy_label = int(record["target_anatomy_label"])
     full_ct_path = Path(str(record["full_ct"]))
     anatomy_label_path = Path(str(record["stage1_anatomy_label"]))
-    fracture_label_path = Path(str(record["fracture_label"]))
 
     ct_img = sitk.ReadImage(str(full_ct_path))
     anatomy_img = sitk.ReadImage(str(anatomy_label_path))
-    fracture_label_img = sitk.ReadImage(str(fracture_label_path))
     _assert_same_grid(ct_img, anatomy_img, full_ct_path, anatomy_label_path, "stage-1 anatomy label")
-    _assert_same_grid(ct_img, fracture_label_img, full_ct_path, fracture_label_path, "fracture supervision label")
 
     ct_arr = sitk.GetArrayFromImage(ct_img)
     anatomy_arr = sitk.GetArrayFromImage(anatomy_img)
-    fracture_arr = sitk.GetArrayFromImage(fracture_label_img)
     anatomy_arr = _validate_discrete_label(anatomy_arr, anatomy_label_path, "Stage-1 anatomy label")
-    fracture_arr = _validate_discrete_label(fracture_arr, fracture_label_path, "Fracture label")
 
     bone_mask = anatomy_arr == target_anatomy_label
     if not np.any(bone_mask):
@@ -236,6 +232,29 @@ def _write_stage2_case(
     masked_img = sitk.GetImageFromArray(masked_arr.astype(ct_arr.dtype, copy=False))
     masked_img.CopyInformation(ct_img)
 
+    image_dst_dir.mkdir(parents=True, exist_ok=True)
+    sitk.WriteImage(masked_img, str(image_dst_dir / f"{case_identifier}_0000.nii.gz"))
+
+    total_voxels = int(masked_arr.size)
+    mask_voxels = int(np.count_nonzero(bone_mask))
+    outside_nonzero = int(np.count_nonzero(masked_arr[~bone_mask] != 0))
+
+    if label_dst_dir is None:
+        return {
+            "total_voxels": total_voxels,
+            "mask_voxels": mask_voxels,
+            "label_voxels": 0,
+            "outside_mask_nonzero_voxels": outside_nonzero,
+            "label_encoding_mode": "not_applicable",
+            "mask_fraction": float(mask_voxels / total_voxels) if total_voxels else 0.0,
+        }
+
+    fracture_label_path = Path(str(record["fracture_label"]))
+    fracture_label_img = sitk.ReadImage(str(fracture_label_path))
+    _assert_same_grid(ct_img, fracture_label_img, full_ct_path, fracture_label_path, "fracture supervision label")
+    fracture_arr = sitk.GetArrayFromImage(fracture_label_img)
+    fracture_arr = _validate_discrete_label(fracture_arr, fracture_label_path, "Fracture label")
+
     remapped_label, label_encoding_mode = _map_full_grid_bone_fragments(
         fracture_arr,
         bone_code,
@@ -245,15 +264,10 @@ def _write_stage2_case(
     label_img = sitk.GetImageFromArray(remapped_label)
     label_img.CopyInformation(fracture_label_img)
 
-    image_dst_dir.mkdir(parents=True, exist_ok=True)
     label_dst_dir.mkdir(parents=True, exist_ok=True)
-    sitk.WriteImage(masked_img, str(image_dst_dir / f"{case_identifier}_0000.nii.gz"))
     sitk.WriteImage(label_img, str(label_dst_dir / f"{case_identifier}.nii.gz"))
 
-    total_voxels = int(masked_arr.size)
-    mask_voxels = int(np.count_nonzero(bone_mask))
     label_voxels = int(np.count_nonzero(remapped_label > 0))
-    outside_nonzero = int(np.count_nonzero(masked_arr[~bone_mask] != 0))
     return {
         "total_voxels": total_voxels,
         "mask_voxels": mask_voxels,
@@ -309,7 +323,7 @@ def _raw_dataset_matches_expected(raw_dataset_dir: Path, train_cases: list[str],
         "imagesTr": set(train_cases),
         "labelsTr": set(train_cases),
         "imagesTs": set(test_cases),
-        "labelsTs": set(test_cases),
+        "labelsTs": set(),
     }
     actual = {
         "imagesTr": _collect_built_image_cases(raw_dataset_dir / "imagesTr"),
@@ -344,12 +358,12 @@ def build_raw_dataset(data_root: str | Path | None = None, reset_existing: bool 
         _clear_directory(raw_dataset_dir / "imagesTr")
         _clear_directory(raw_dataset_dir / "imagesTs")
         _clear_directory(raw_dataset_dir / "labelsTr")
-        _clear_directory(raw_dataset_dir / "labelsTs")
+        shutil.rmtree(raw_dataset_dir / "labelsTs", ignore_errors=True)
     else:
         (raw_dataset_dir / "imagesTr").mkdir(parents=True, exist_ok=True)
         (raw_dataset_dir / "imagesTs").mkdir(parents=True, exist_ok=True)
         (raw_dataset_dir / "labelsTr").mkdir(parents=True, exist_ok=True)
-        (raw_dataset_dir / "labelsTs").mkdir(parents=True, exist_ok=True)
+        shutil.rmtree(raw_dataset_dir / "labelsTs", ignore_errors=True)
 
     total_voxels = 0
     mask_voxels = 0
@@ -359,7 +373,7 @@ def build_raw_dataset(data_root: str | Path | None = None, reset_existing: bool 
         if record["split"] == "train":
             stats = _write_stage2_case(record, raw_dataset_dir / "imagesTr", raw_dataset_dir / "labelsTr")
         else:
-            stats = _write_stage2_case(record, raw_dataset_dir / "imagesTs", raw_dataset_dir / "labelsTs")
+            stats = _write_stage2_case(record, raw_dataset_dir / "imagesTs", None)
         total_voxels += int(stats["total_voxels"])
         mask_voxels += int(stats["mask_voxels"])
         label_voxels += int(stats["label_voxels"])
@@ -384,7 +398,7 @@ def build_raw_dataset(data_root: str | Path | None = None, reset_existing: bool 
         "image_generation": (
             "FracSegNet second-stage input: the full raw CT grid is masked by the "
             "stage-1 anatomy segmentation label for each target bone. Fracture GT is "
-            "used only as the supervision label and for disMap/SCNP loss inputs."
+            "used only for training supervision labels and disMap/SCNP loss inputs."
         ),
         "mask_definition": "stage1 anatomy prediction == target bone label",
         "outside_mask_value": 0,
@@ -425,6 +439,7 @@ def build_raw_dataset(data_root: str | Path | None = None, reset_existing: bool 
         "test_patients": VALID_TEST_PATIENT_END - TRAIN_PATIENT_END,
         "train_cases": len(train_cases),
         "test_cases": len(test_cases),
+        "test_labels_written": False,
         "case_records_count": len(case_records),
         "case_records_digest": case_records_digest,
         "case_records": case_records,
@@ -469,7 +484,7 @@ def main() -> None:
         description=(
             "Build the stage-2 masked-CT nnU-Net dataset using the official FracSegNet data flow: "
             "full CT + stage-1 anatomy label -> per-bone masked CT, with fracture "
-            "labels used only as supervision."
+            "labels used only for training supervision."
         )
     )
     parser.add_argument(
