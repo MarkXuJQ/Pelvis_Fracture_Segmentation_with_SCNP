@@ -1,0 +1,82 @@
+# Python cache and local tooling
+__pycache__/
+**/__pycache__/
+.___pycache__
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Virtual environments and local config
+.venv/
+venv/
+env/
+ENV/
+.env
+.env.*
+.python-version
+
+# Editor / OS clutter
+.DS_Store
+Thumbs.db
+._*
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local temp files
+.tmp/
+tmp/
+*.tmp
+
+# Project data and generated experiment artifacts
+source/
+paper/
+dataset/nnUNet_raw_data/
+dataset/nnUNet_preprocessed/
+dataset/nnUNet_results/
+dataset/stage1_anatomy_predictions/
+dataset/maxflow_baseline*/
+dataset/visualization/
+training/logs/
+training/visualization_outputs/
+
+# Generated medical images and visualization meshes
+*.nii
+*.nii.gz
+*.mha
+*.mhd
+*.nrrd
+*.vtk
+*.ply
+
+# Model checkpoints and training outputs
+*.pth
+*.pt
+*.ckpt
+
+# Packaging / build outputs
+build/
+dist/
+*.egg-info/
+
+# Coverage artifacts
+.coverage
+.coverage.*
+htmlcov/
+
+# LaTeX build artifacts
+paper/latex/*.aux
+paper/latex/*.bbl
+paper/latex/*.blg
+paper/latex/*.fdb_latexmk
+paper/latex/*.fls
+paper/latex/*.log
+paper/latex/*.out
+paper/latex/*.pdf
+paper/latex/*.synctex.gz
+paper/latex/*.toc
