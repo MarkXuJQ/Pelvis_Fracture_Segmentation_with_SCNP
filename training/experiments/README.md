@@ -8,10 +8,11 @@ Each experiment directory should primarily contain:
 - `example/`: supporting trainer or loss implementations referenced by the overlay.
 - `__init__.py`: package marker.
 
-User-facing training entrypoints are intentionally kept outside this folder:
+User-facing train and predict entrypoints are intentionally kept outside this folder:
 
 - training launchers live in `training/` and `training/run/`
-- prediction, validation, and compare launchers are intentionally left out of this training-code-only release
+- prediction launchers live in `inference/`
+- validation and compare launchers are intentionally left out of this release
 - dataset build and preprocessing entrypoints live in `training/data/`
 
 This keeps experiment folders focused on what is actually different between variants.

@@ -15,6 +15,7 @@ Use the unified launcher when possible:
 ```bash
 python training/run_experiment.py list
 python training/run_experiment.py train single_rf3_thr03 --fold 0
+python training/run_experiment.py predict single_rf3_thr03 --folds all
 ```
 
 The old top-level launchers such as `train_single_rf3_thr03.py` still exist, but they are now compatibility shims around the same shared launcher.
@@ -23,7 +24,7 @@ The same applies to the soft-variant family, including the full-image `hard_no_f
 ## Layout
 
 - `run_experiment.py`
-  - Unified CLI; this first code release focuses on `train`.
+  - Unified CLI for train and inference-only prediction.
 - `data/`
   - Dataset build, preprocessing, and audit code.
 - `run/`

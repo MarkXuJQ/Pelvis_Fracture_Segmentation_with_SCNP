@@ -14,7 +14,7 @@ All entrypoints resolve paths against the local repository root through `PELVIS_
 - `training/`
   Main training package, including runtime utilities, experiment registry, data preparation, and nnUNetv2 trainer overlays.
 - `inference/`
-  Prediction entrypoints. These are kept out of the first training-code-only commit.
+  Prediction entrypoints for trained SCNP models. They run inference only and do not compute evaluation metrics.
 - `paper/`
   Thesis and manuscript material.
 
@@ -26,8 +26,6 @@ Within `training/`:
   Unified launchers plus experiment registry code.
 - `training/runtime/`
   Shared path resolution, split generation, disMap loading, and trainer-base utilities.
-- `training/evaluation/`
-  Prediction and validation flows. These are not part of the first training-code-only commit.
 - `training/experiments/`
   Experiment-specific trainer overlays and supporting example code.
 
@@ -155,6 +153,23 @@ python training/train_hard_no_fdm.py --split_mode patient --fold 0
 python training/train_soft_no_fdm.py --split_mode patient --fold 0
 python training/train_scnp_soft_fdm.py --split_mode patient --fold 0
 python training/train_soft_soft_fdm.py --split_mode patient --fold 0
+```
+
+Run inference with a trained model on stage-2 masked CT images:
+
+```bash
+python training/run_experiment.py predict single_rf3_thr03 --folds all --checkpoint checkpoint_final.pth
+```
+
+By default this reads `imagesTs` from the configured nnU-Net raw dataset and writes predictions under
+`dataset/predictions/`. To predict another folder of stage-2 masked CT images, pass `--input_dir` with files named
+`*_0000.nii.gz`. The inference entrypoint does not read ground-truth labels and does not compute metrics.
+
+Equivalent experiment-specific wrappers are also available:
+
+```bash
+python inference/predict_single_rf3_thr03.py --folds all --checkpoint checkpoint_final.pth
+python inference/predict_multi_rf3_thr03_rf5_thr05.py --folds all --checkpoint checkpoint_final.pth
 ```
 
 ## Notes

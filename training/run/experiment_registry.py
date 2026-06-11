@@ -206,7 +206,7 @@ def get_experiment_spec(name: str) -> ExperimentSpec:
 
 
 def supports_action(spec: ExperimentSpec, action: str) -> bool:
-    if action == "train":
+    if action in {"train", "predict"}:
         return True
     raise ValueError(f"Unsupported action: {action}")
 

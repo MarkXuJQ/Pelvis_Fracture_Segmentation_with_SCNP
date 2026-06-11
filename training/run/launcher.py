@@ -53,3 +53,9 @@ def run_named_train(experiment_name: str) -> None:
         return
 
     raise RuntimeError(f"Unsupported experiment family: {spec.family}")
+
+
+def run_named_predict(experiment_name: str) -> None:
+    from inference.predict_stage2_fragments import main_for_experiment
+
+    main_for_experiment(experiment_name)

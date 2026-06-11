@@ -12,19 +12,19 @@ if str(REPO_ROOT) not in sys.path:
 from training.run.experiment_registry import list_experiment_specs
 from training.run.launcher import (
     configure_top_level_environment,
+    run_named_predict,
     run_named_train,
 )
 
 
 ACTION_RUNNERS = {
     "train": run_named_train,
+    "predict": run_named_predict,
 }
 
 
 def _build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Unified entrypoint for Pelvis_SCNP training experiments."
-    )
+    parser = argparse.ArgumentParser(description="Unified entrypoint for Pelvis_SCNP train and predict flows.")
     subparsers = parser.add_subparsers(dest="action", required=True)
 
     list_parser = subparsers.add_parser("list", help="List available experiments.")
