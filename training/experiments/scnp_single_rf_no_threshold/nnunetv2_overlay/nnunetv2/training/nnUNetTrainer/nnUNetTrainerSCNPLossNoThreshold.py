@@ -1,3 +1,0 @@
-from training.experiments.scnp_single_rf_no_threshold.example.nnUNetTrainerSCNPLoss import nnUNetTrainerSCNPLossNoThreshold
-
-__all__ = ["nnUNetTrainerSCNPLossNoThreshold"]

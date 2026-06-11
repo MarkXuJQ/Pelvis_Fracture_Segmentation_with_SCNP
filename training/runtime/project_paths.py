@@ -7,7 +7,9 @@ from pathlib import Path
 
 
 DATA_ROOT_ENV_VAR = "PELVIS_SCNP_DATA_ROOT"
-DEFAULT_DATA_ROOT = Path(os.environ.get(DATA_ROOT_ENV_VAR, r"D:\Code\Pelvis_SCNP")).resolve()
+DEFAULT_DATA_ROOT = Path(
+    os.environ.get(DATA_ROOT_ENV_VAR, Path(__file__).resolve().parents[2])
+).resolve()
 FULL_CT_DATASET_DIR_ENV_VAR = "PELVIS_SCNP_FULL_CT_DATASET_DIR"
 DEFAULT_FULL_CT_DATASET_DIR = Path(
     os.environ.get(
@@ -26,10 +28,8 @@ DEFAULT_FRACSEGNET_ANATOMICAL_MODEL_DIR = Path(
 
 DATASET_ID_ENV_VAR = "PELVIS_SCNP_NNUNET_DATASET_ID"
 DATASET_NAME_ENV_VAR = "PELVIS_SCNP_NNUNET_DATASET_NAME"
-# 503 is only the historical nnU-Net dataset id used in our local experiments.
-# It is not part of the thesis method; override the two env vars above for a new project.
-DATASET_ID = int(os.environ.get(DATASET_ID_ENV_VAR, "503"))
-DATASET_NAME = os.environ.get(DATASET_NAME_ENV_VAR, f"Dataset{DATASET_ID:03d}_SCNP")
+DATASET_ID = int(os.environ.get(DATASET_ID_ENV_VAR, "520"))
+DATASET_NAME = os.environ.get(DATASET_NAME_ENV_VAR, f"Dataset{DATASET_ID:03d}_PelvisSCNP")
 DATASET_BUILD_SCHEMA_VERSION = 5
 SECOND_STAGE_IMAGE_SEMANTICS = "fracsegnet_masked_ct"
 SECOND_STAGE_IMAGE_GENERATION_MODE = "masked_from_stage1_anatomy_label"

@@ -1,18 +1,15 @@
 # Experiments
 
-This folder holds experiment-specific assets only.
+Only the core paper method example is kept here:
 
-Each experiment directory should primarily contain:
+- `scnp_single_rf3_thr03/`
 
-- `nnunetv2_overlay/`: the local nnUNetv2 trainer/loss overlay used by that variant.
-- `example/`: supporting trainer or loss implementations referenced by the overlay.
-- `__init__.py`: package marker.
+This experiment contains the nnU-Net v2 overlay and example implementation for FDM-gated SCNP training with receptive field `3` and FDM threshold `0.3`.
 
-User-facing train and predict entrypoints are intentionally kept outside this folder:
+The overlay exports:
 
-- training launchers live in `training/` and `training/run/`
-- prediction launchers live in `inference/`
-- validation and compare launchers are intentionally left out of this release
-- dataset build and preprocessing entrypoints live in `training/data/`
+- `nnUNetTrainerSCNPLoss`
+- `nnUNetTrainerSCNPLossRF3TH03`
+- `SCNPCEDice`
 
-This keeps experiment folders focused on what is actually different between variants.
+Other ablation and comparison variants are intentionally left out of this release so the repository stays focused on the main method.

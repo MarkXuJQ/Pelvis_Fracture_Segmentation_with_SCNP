@@ -19,7 +19,3 @@ class nnUNetTrainerSCNPLossRF3TH03(nnUNetTrainerSCNPLoss):
     """
 
     pass
-
-
-class nnUNetTrainerSCNPLossRF3TH03TrueDisMap(nnUNetTrainerSCNPLossRF3TH03):
-    pass
