@@ -1,6 +1,6 @@
-from nnunetv2.training.loss.compound_losses_scnp import SCNPCEDice
+from training.method.scnp_loss import SCNPCEDice
 
-from training.runtime.scnp_ct_only_trainer import nnUNetTrainerSCNPSingleRFBase
+from training.method.scnp_trainer import nnUNetTrainerSCNPSingleRFBase
 
 
 class nnUNetTrainerSCNPLoss(nnUNetTrainerSCNPSingleRFBase):

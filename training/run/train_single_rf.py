@@ -10,7 +10,6 @@ from training.runtime.experiment_runtime import (
     apply_windows_runtime_limits,
     build_overlay_pythonpath,
     ensure_preprocessed_dataset_matches_raw,
-    prepare_patient_level_splits,
     resolve_dataset_name,
     resolve_n_proc_da,
     resolve_train_exe,
@@ -51,16 +50,6 @@ def main(
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--num_gpus", type=int, default=None)
     parser.add_argument("--log_file", type=str, default=None)
-    parser.add_argument(
-        "--split_mode",
-        type=str,
-        default="keep_existing",
-        choices=["patient", "keep_existing"],
-        help="patient: regenerate splits_final.json by patient id before training; keep_existing: keep the existing split file.",
-    )
-    parser.add_argument("--patient_val_count", type=int, default=30)
-    parser.add_argument("--patient_split_seed", type=int, default=20260328)
-
     parser.add_argument("--scnp_rf", type=int, default=default_rf)
     parser.add_argument("--scnp_kappa", type=float, default=9999.0)
     parser.add_argument("--scnp_weight_ce", type=float, default=1.0)
@@ -111,7 +100,7 @@ def main(
         print(f"[runtime] nnUNet_n_proc_DA={resolved_n_proc_da}")
 
     if args.preprocess:
-        preprocess_py = (task_dir.parents[1] / "data" / "preprocess_stage2_training_dataset.py").resolve()
+        preprocess_py = (task_dir.parents[1] / "prepare_fdm_sidecars.py").resolve()
         preprocess_cmd = [
             sys.executable,
             str(preprocess_py),
@@ -125,26 +114,16 @@ def main(
             str(task_id),
             "--configs",
             str(args.network),
+            "--run_preprocessing",
         ]
         if bool(args.verify_dataset_integrity):
             preprocess_cmd.append("--verify_dataset_integrity")
         if bool(args.reset_preprocess):
             preprocess_cmd.append("--reset_preprocess")
         subprocess.check_call(preprocess_cmd)
-        ensure_preprocessed_dataset_matches_raw(raw_base=raw_base, preprocessed=preprocessed, task_id=task_id)
+        ensure_preprocessed_dataset_matches_raw(raw_base=raw_base, preprocessed=preprocessed, task_id=task_id, network=args.network)
     else:
-        ensure_preprocessed_dataset_matches_raw(raw_base=raw_base, preprocessed=preprocessed, task_id=task_id)
-
-    if args.split_mode == "patient" and str(args.fold).lower() != "all":
-        prepare_patient_level_splits(
-            raw_base=raw_base,
-            preprocessed=preprocessed,
-            task_id=task_id,
-            selected_fold=int(args.fold),
-            patient_val_count=int(args.patient_val_count),
-            seed=int(args.patient_split_seed),
-            generated_by=Path(__file__),
-        )
+        ensure_preprocessed_dataset_matches_raw(raw_base=raw_base, preprocessed=preprocessed, task_id=task_id, network=args.network)
 
     train_env = os.environ.copy()
     train_env["PYTHONPATH"] = build_overlay_pythonpath(

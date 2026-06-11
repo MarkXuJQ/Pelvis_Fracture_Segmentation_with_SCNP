@@ -1,3 +1,3 @@
-from training.experiments.scnp_single_rf3_thr03.example.nnUNetTrainerSCNPLoss import nnUNetTrainerSCNPLoss
+from training.method.nnunet_trainer_scnp import nnUNetTrainerSCNPLoss
 
 __all__ = ["nnUNetTrainerSCNPLoss"]

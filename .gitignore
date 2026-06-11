@@ -44,6 +44,11 @@ dataset/maxflow_baseline*/
 dataset/visualization/
 training/logs/
 training/visualization_outputs/
+local_paper_reproduction/
+training/data/
+training/evaluation/
+training/visualization/
+tools/
 
 # Generated medical images and visualization meshes
 *.nii
