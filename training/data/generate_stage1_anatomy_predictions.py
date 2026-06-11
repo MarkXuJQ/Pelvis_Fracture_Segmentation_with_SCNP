@@ -12,7 +12,7 @@ repo_root = Path(__file__).resolve().parents[2]
 if str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
-from training.evaluation.full_ct_pipeline_helpers import (
+from training.runtime.fracsegnet_stage1_helpers import (
     _copy_model,
     _ensure_dir,
     _patch_generic_unet_lambda,

@@ -12,6 +12,6 @@ User-facing training entrypoints are intentionally kept outside this folder:
 
 - training launchers live in `training/` and `training/run/`
 - prediction, validation, and compare launchers are intentionally left out of this training-code-only release
-- dataset build and preprocessing live in `dataset/` and `training/data/`
+- dataset build and preprocessing entrypoints live in `training/data/`
 
 This keeps experiment folders focused on what is actually different between variants.

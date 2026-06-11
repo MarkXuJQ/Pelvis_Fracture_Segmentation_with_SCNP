@@ -10,7 +10,7 @@ All entrypoints resolve paths against the local repository root through `PELVIS_
 ## Repository Layout
 
 - `dataset/`
-  Thin local entry scripts for the stage-1 anatomy step and stage-2 training dataset preparation.
+  Local nnU-Net data workspace. Generated contents are ignored by Git.
 - `training/`
   Main training package, including runtime utilities, experiment registry, data preparation, and nnUNetv2 trainer overlays.
 - `inference/`
@@ -21,7 +21,7 @@ All entrypoints resolve paths against the local repository root through `PELVIS_
 Within `training/`:
 
 - `training/data/`
-  Stage-1 anatomy prediction, stage-2 masked-CT dataset build, preprocessing, and audit logic.
+  Stage-1 anatomy prediction, stage-2 masked-CT dataset build, preprocessing, and audit entrypoints.
 - `training/run/`
   Unified launchers plus experiment registry code.
 - `training/runtime/`
@@ -59,7 +59,7 @@ The external roots can be overridden with `PELVIS_SCNP_FULL_CT_DATASET_DIR` and
 `PELVIS_SCNP_FRACSEGNET_ANATOMICAL_MODEL_DIR`. By default the code looks under `<repo-root>/external/` so a fresh
 clone does not depend on any personal absolute path.
 If the first-stage FracSegNet anatomy model must run in a separate nnU-Net v1 environment, set `NNUNET_V1_PY` to that
-environment's Python executable before running `dataset/generate_stage1_anatomy_predictions.py`.
+environment's Python executable before running `training/data/generate_stage1_anatomy_predictions.py`.
 
 Pipeline semantics follow the official FracSegNet fracture-stage setting and the thesis description:
 
@@ -94,13 +94,13 @@ and preprocessed nnU-Net dataset because nnU-Net stores the id/name in folder na
 
 The preferred entrypoint names describe the stage and purpose directly:
 
-- `dataset/generate_stage1_anatomy_predictions.py`
+- `training/data/generate_stage1_anatomy_predictions.py`
   Runs the FracSegNet anatomy model on complete CT volumes and writes stage-1 anatomy labels.
-- `dataset/build_stage2_masked_ct_dataset.py`
+- `training/data/build_stage2_masked_ct_dataset.py`
   Builds the stage-2 nnU-Net raw dataset: one CT-only masked image per target bone, plus the three-class fracture label.
-- `dataset/preprocess_stage2_training_dataset.py`
+- `training/data/preprocess_stage2_training_dataset.py`
   Runs nnU-Net preprocessing and generates training-side `disMap` sidecars for the SCNP loss.
-- `dataset/audit_stage2_training_dataset.py`
+- `training/data/audit_stage2_training_dataset.py`
   Checks that raw and preprocessed data match the thesis data semantics before training.
 
 ## Common Commands
@@ -108,20 +108,20 @@ The preferred entrypoint names describe the stage and purpose directly:
 Generate stage-1 anatomy predictions, then build the raw stage-2 masked-CT training dataset:
 
 ```bash
-python dataset/generate_stage1_anatomy_predictions.py
-python dataset/build_stage2_masked_ct_dataset.py --reset_existing
+python training/data/generate_stage1_anatomy_predictions.py
+python training/data/build_stage2_masked_ct_dataset.py --reset_existing
 ```
 
 Re-run preprocessing after any stage-2 dataset rebuild:
 
 ```bash
-python dataset/preprocess_stage2_training_dataset.py --reset_preprocess --configs 3d_fullres --dismap_workers 4
+python training/data/preprocess_stage2_training_dataset.py --reset_preprocess --configs 3d_fullres --dismap_workers 4
 ```
 
 Audit local dataset state with explicit local paths:
 
 ```bash
-python dataset/audit_stage2_training_dataset.py --dataset_dir D:\Code\Pelvis_SCNP\dataset\nnUNet_raw_data\Dataset503_SCNP --preprocessed_dataset_dir D:\Code\Pelvis_SCNP\dataset\nnUNet_preprocessed\Dataset503_SCNP
+python training/data/audit_stage2_training_dataset.py --dataset_dir D:\Code\Pelvis_SCNP\dataset\nnUNet_raw_data\Dataset503_SCNP --preprocessed_dataset_dir D:\Code\Pelvis_SCNP\dataset\nnUNet_preprocessed\Dataset503_SCNP
 ```
 
 If you change `PELVIS_SCNP_NNUNET_DATASET_NAME`, replace `Dataset503_SCNP` in the audit paths with your chosen name.
